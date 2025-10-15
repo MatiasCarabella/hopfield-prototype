@@ -48,7 +48,7 @@ function App() {
   const [isRunning, setIsRunning] = useState(false);
   const [iterations, setIterations] = useState(0);
   const [method, setMethod] = useState('hebb');
-  const [maxIterations, setMaxIterations] = useState(20);
+  const [maxIterations, setMaxIterations] = useState(10);
 
   // Convertir matriz 2D a vector
   const flatten = (matrix) => matrix.flat();
