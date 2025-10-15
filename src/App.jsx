@@ -113,27 +113,31 @@ function App() {
     return W;
   };
 
-  // Actualizar red (un paso)
-  const updateNetwork = (pattern, W) => {
-    const n = SIZE * SIZE;
-    const current = toBipolar(flatten(pattern));
-    const next = [...current];
-    
-    // Actualización asíncrona (orden aleatorio)
-    const indices = Array.from({length: n}, (_, i) => i);
-    for (let idx = 0; idx < n; idx++) {
-      const i = indices[Math.floor(Math.random() * indices.length)];
-      indices.splice(indices.indexOf(i), 1);
-      
-      let sum = 0;
-      for (let j = 0; j < n; j++) {
-        sum += W[i][j] * next[j];
-      }
-      next[i] = sum >= 0 ? 1 : -1;
+ // Actualizar red (un paso)
+ const updateNetwork = (pattern, W) => {
+  const n = SIZE * SIZE;
+  const current = toBipolar(flatten(pattern));
+  const next = [...current];
+
+  // Actualización asincrónica (1 neurona por paso)
+  const indices = Array.from({ length: n }, (_, i) => i);
+  const numToUpdate = Math.floor(n * 0.5); // ~50% por iteración (ajustable)
+
+  for (let k = 0; k < numToUpdate; k++) {
+    // Elegimos una neurona aleatoria
+    const i = indices.splice(Math.floor(Math.random() * indices.length), 1)[0];
+    let sum = 0;
+    for (let j = 0; j < n; j++) {
+      sum += W[i][j] * next[j];
     }
-    
-    return unflatten(fromBipolar(next));
-  };
+
+    // Regla determinista (sin ruido térmico)
+    next[i] = sum >= 0 ? 1 : -1;
+  }
+
+  return unflatten(fromBipolar(next));
+};
+
 
   // Calcular energía
   const calculateEnergy = (pattern, W) => {
