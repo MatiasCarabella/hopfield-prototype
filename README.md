@@ -8,6 +8,10 @@
 
 An interactive visualization of a **Hopfield Neural Network** that demonstrates associative memory, pattern recognition, and noise reduction capabilities. Watch as the network recovers clean patterns from noisy inputs in real-time.
 
+<img width="1452" height="739" alt="image" src="https://github.com/user-attachments/assets/e2f67f89-3dfa-4213-82d4-98643f6cbf4a" />
+
+*The network recovering a diamond pattern from noisy input through iterative convergence*
+
 ## ✨ Features
 
 - 🎯 **Real-time Pattern Recovery** - Visualize how the network converges from noisy inputs to memorized patterns
@@ -16,6 +20,7 @@ An interactive visualization of a **Hopfield Neural Network** that demonstrates 
 - 📊 **Live Metrics** - Monitor energy levels, convergence status, and iteration count
 - 🎭 **Multiple Patterns** - Network memorizes and distinguishes between square and diamond shapes
 - 🌐 **Responsive Design** - Modern, dark-themed UI that works on all screen sizes
+
 
 ## 🚀 Demo
 
