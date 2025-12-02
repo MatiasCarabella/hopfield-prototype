@@ -99,16 +99,6 @@ hopfield-prototype/
 └── package.json         # Dependencies
 ```
 
-## 🎯 Code Quality
-
-The project follows clean code principles and SOLID design:
-
-- **Single Responsibility** - Utility functions separated from component logic
-- **Memoization** - Performance optimization with useMemo and useCallback
-- **Constants** - Configuration values extracted to named constants
-- **Pure Functions** - Network operations are side-effect free
-- **Descriptive Naming** - Clear, self-documenting variable and function names
-
 ## 🔧 Development
 
 ```bash
@@ -117,9 +107,6 @@ npm run dev
 
 # Build for production
 npm run build
-
-# Preview production build
-npm run preview
 
 # Lint code
 npm run lint
@@ -133,32 +120,6 @@ npm run lint
 - **Max Iterations**: 10
 - **Update Strategy**: Asynchronous random (50% neurons/step)
 
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-
-- Report bugs
-- Suggest new features
-- Submit pull requests
-- Improve documentation
-
 ## 📄 License
 
 This project is open source and available under the [MIT License](LICENSE).
-
-## 🙏 Acknowledgments
-
-- Inspired by John Hopfield's groundbreaking work on neural networks (1982)
-- Built with modern React patterns and best practices
-- UI design influenced by contemporary dark mode aesthetics
-
-## 📚 Learn More
-
-- [Hopfield Networks - Wikipedia](https://en.wikipedia.org/wiki/Hopfield_network)
-- [Neural Networks and Deep Learning](http://neuralnetworksanddeeplearning.com/)
-- [React Documentation](https://react.dev/)
-- [Vite Guide](https://vitejs.dev/guide/)
-
----
-
-Made with ❤️ and ⚛️ React
