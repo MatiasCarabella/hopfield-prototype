@@ -1,16 +1,20 @@
+<div align="center">
+
 # 🧠 Hopfield Network - Pattern Recognition
 
-[![React](https://img.shields.io/badge/React-19.1.1-61DAFB?logo=react&logoColor=white)](https://reactjs.org/)
-[![Vite](https://img.shields.io/badge/Vite-7.2.6-646CFF?logo=vite&logoColor=white)](https://vitejs.dev/)
-[![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-[![Lucide](https://img.shields.io/badge/Lucide-0.555.0-F56565?logo=lucide&logoColor=white)](https://lucide.dev/)
-[![License](https://img.shields.io/badge/License-MIT-blue)](LICENSE)
+[![React](https://img.shields.io/badge/React-19.1.1-61DAFB?style=for-the-badge&logo=react&logoColor=white)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/Vite-7.2.6-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
+[![Lucide](https://img.shields.io/badge/Lucide-0.555.0-F56565?style=for-the-badge&logo=lucide&logoColor=white)](https://lucide.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 An interactive visualization of a **Hopfield Neural Network** that demonstrates associative memory, pattern recognition, and noise reduction capabilities. Watch as the network recovers clean patterns from noisy inputs in real-time.
 
 <img width="1452" height="739" alt="image" src="https://github.com/user-attachments/assets/e2f67f89-3dfa-4213-82d4-98643f6cbf4a" />
 
 *The network recovering a diamond pattern from noisy input through iterative convergence*
+
+</div>
 
 ## ✨ Features
 
