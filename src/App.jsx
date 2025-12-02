@@ -1,185 +1,194 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Play, RotateCcw, Settings, Pause } from 'lucide-react';
 import './App.css';
 
-function App() {
-  const SIZE = 10;
-  const PIXEL_SIZE = 30;
+// Constants
+const GRID_SIZE = 10;
+const PIXEL_SIZE = 30;
+const DEFAULT_NOISE_LEVEL = 0.25;
+const DEFAULT_MAX_ITERATIONS = 10;
+const STEP_DELAY_MS = 500;
+const UPDATE_RATIO = 0.5;
+
+// Reference patterns (images to memorize)
+const REFERENCE_PATTERNS = {
+  square: [
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,1,1,1,1,1,1,0,0],
+    [0,0,1,0,0,0,0,1,0,0],
+    [0,0,1,0,0,0,0,1,0,0],
+    [0,0,1,0,0,0,0,1,0,0],
+    [0,0,1,0,0,0,0,1,0,0],
+    [0,0,1,1,1,1,1,1,0,0],
+    [1,0,0,0,0,0,0,0,0,0],
+    [1,1,0,0,0,0,0,0,0,0]
+  ],
+  diamond: [
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,0,0,0,0,0,0],
+    [0,0,0,0,1,1,0,0,0,0],
+    [0,0,0,1,0,0,1,0,0,0],
+    [0,0,1,0,0,0,0,1,0,0],
+    [0,0,1,0,0,0,0,1,0,0],
+    [0,0,0,1,0,0,1,0,0,0],
+    [0,0,0,0,1,1,0,0,0,0],
+    [1,0,0,0,0,0,0,0,0,0],
+    [1,1,0,0,0,0,0,0,0,0]
+  ]
+};
+
+// Utility functions
+const flatten = (matrix) => matrix.flat();
+
+const unflatten = (vector, size) => {
+  const matrix = [];
+  for (let i = 0; i < size; i++) {
+    matrix.push(vector.slice(i * size, (i + 1) * size));
+  }
+  return matrix;
+};
+
+const toBipolar = (vector) => vector.map(v => v === 0 ? -1 : 1);
+const fromBipolar = (vector) => vector.map(v => v === -1 ? 0 : 1);
+
+const createNoisyPattern = (pattern, noiseLevel = DEFAULT_NOISE_LEVEL) => {
+  return pattern.map(row => 
+    row.map(pixel => 
+      Math.random() < noiseLevel ? 1 - pixel : pixel
+    )
+  );
+};
+
+const hasConverged = (pattern1, pattern2) => {
+  return JSON.stringify(pattern1) === JSON.stringify(pattern2);
+};
+
+// Hopfield Network Training Methods
+const trainHebb = (patterns, size) => {
+  const n = size * size;
+  const weights = Array(n).fill(0).map(() => Array(n).fill(0));
   
-  // Patrones de referencia (imágenes a memorizar)
-  const REFERENCE_PATTERNS = {
-    square: [
-      [0,0,0,0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0,0,0,0],
-      [0,0,1,1,1,1,1,1,0,0],
-      [0,0,1,0,0,0,0,1,0,0],
-      [0,0,1,0,0,0,0,1,0,0],
-      [0,0,1,0,0,0,0,1,0,0],
-      [0,0,1,0,0,0,0,1,0,0],
-      [0,0,1,1,1,1,1,1,0,0],
-      [1,0,0,0,0,0,0,0,0,0],
-      [1,1,0,0,0,0,0,0,0,0]
-    ],
-    reference: [
-      [0,0,0,0,0,0,0,0,0,0],
-      [0,0,0,0,0,0,0,0,0,0],
-      [0,0,0,0,1,1,0,0,0,0],
-      [0,0,0,1,0,0,1,0,0,0],
-      [0,0,1,0,0,0,0,1,0,0],
-      [0,0,1,0,0,0,0,1,0,0],
-      [0,0,0,1,0,0,1,0,0,0],
-      [0,0,0,0,1,1,0,0,0,0],
-      [1,0,0,0,0,0,0,0,0,0],
-      [1,1,0,0,0,0,0,0,0,0]
-    ]
-  };
-
-  const createNoisyPattern = (pattern, noiseLevel = 0.2) => {
-    return pattern.map(row => 
-      row.map(pixel => 
-        Math.random() < noiseLevel ? 1 - pixel : pixel
-      )
-    );
-  };
-
-  const [weights, setWeights] = useState(null);
-  const [currentPattern, setCurrentPattern] = useState(createNoisyPattern(REFERENCE_PATTERNS.reference));
-  const [history, setHistory] = useState([]);
-  const [isRunning, setIsRunning] = useState(false);
-  const [iterations, setIterations] = useState(0);
-  const [method, setMethod] = useState('hebb');
-  const [maxIterations, setMaxIterations] = useState(10);
-
-  // Convertir matriz 2D a vector
-  const flatten = (matrix) => matrix.flat();
-  
-  // Convertir vector a matriz 2D
-  const unflatten = (vector) => {
-    const matrix = [];
-    for (let i = 0; i < SIZE; i++) {
-      matrix.push(vector.slice(i * SIZE, (i + 1) * SIZE));
-    }
-    return matrix;
-  };
-
-  // Convertir de {0,1} a {-1,1}
-  const toBipolar = (vector) => vector.map(v => v === 0 ? -1 : 1);
-  const fromBipolar = (vector) => vector.map(v => v === -1 ? 0 : 1);
-
-  // Entrenar con Regla de Hebb
-  const trainHebb = (patterns) => {
-    const n = SIZE * SIZE;
-    const W = Array(n).fill(0).map(() => Array(n).fill(0));
-    
-    patterns.forEach(pattern => {
-      const p = toBipolar(flatten(pattern));
-      for (let i = 0; i < n; i++) {
-        for (let j = 0; j < n; j++) {
-          if (i !== j) {
-            W[i][j] += p[i] * p[j];
-          }
-        }
-      }
-    });
-
-    // Normalizar
-    const numPatterns = patterns.length;
+  patterns.forEach(pattern => {
+    const p = toBipolar(flatten(pattern));
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
-        W[i][j] /= numPatterns;
-      }
-    }
-
-    return W;
-  };
-
-  // Calcular pseudoinversa (versión mejorada de Hebb para el ejemplo)
-  const trainPseudoinverse = (patterns) => {
-    const n = SIZE * SIZE;
-    const W = Array(n).fill(0).map(() => Array(n).fill(0));
-    
-    const P = patterns.map(p => toBipolar(flatten(p)));
-    
-    P.forEach((p, idx) => {
-      for (let i = 0; i < n; i++) {
-        for (let j = 0; j < n; j++) {
-          if (i !== j) {
-            W[i][j] += p[i] * p[j] / P.length;
-          }
+        if (i !== j) {
+          weights[i][j] += p[i] * p[j];
         }
       }
-    });
+    }
+  });
 
-    return W;
-  };
+  // Normalize
+  const numPatterns = patterns.length;
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      weights[i][j] /= numPatterns;
+    }
+  }
 
- // Actualizar red (un paso)
- const updateNetwork = (pattern, W) => {
-  const n = SIZE * SIZE;
+  return weights;
+};
+
+const trainPseudoinverse = (patterns, size) => {
+  const n = size * size;
+  const weights = Array(n).fill(0).map(() => Array(n).fill(0));
+  
+  const bipolarPatterns = patterns.map(p => toBipolar(flatten(p)));
+  
+  bipolarPatterns.forEach(p => {
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        if (i !== j) {
+          weights[i][j] += p[i] * p[j] / bipolarPatterns.length;
+        }
+      }
+    }
+  });
+
+  return weights;
+};
+
+// Network update function
+const updateNetwork = (pattern, weights, size) => {
+  const n = size * size;
   const current = toBipolar(flatten(pattern));
   const next = [...current];
 
-  // Actualización asincrónica (1 neurona por paso)
+  // Asynchronous update (random neurons per step)
   const indices = Array.from({ length: n }, (_, i) => i);
-  const numToUpdate = Math.floor(n * 0.5); // ~50% por iteración (ajustable)
+  const numToUpdate = Math.floor(n * UPDATE_RATIO);
 
   for (let k = 0; k < numToUpdate; k++) {
-    // Elegimos una neurona aleatoria
     const i = indices.splice(Math.floor(Math.random() * indices.length), 1)[0];
     let sum = 0;
     for (let j = 0; j < n; j++) {
-      sum += W[i][j] * next[j];
+      sum += weights[i][j] * next[j];
     }
-
-    // Regla determinista (sin ruido térmico)
     next[i] = sum >= 0 ? 1 : -1;
   }
 
-  return unflatten(fromBipolar(next));
+  return unflatten(fromBipolar(next), size);
 };
 
-
-  // Calcular energía
-  const calculateEnergy = (pattern, W) => {
-    const p = toBipolar(flatten(pattern));
-    const n = p.length;
-    let energy = 0;
-    
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        energy -= W[i][j] * p[i] * p[j];
-      }
+// Calculate energy function
+const calculateEnergy = (pattern, weights) => {
+  const p = toBipolar(flatten(pattern));
+  const n = p.length;
+  let energy = 0;
+  
+  for (let i = 0; i < n; i++) {
+    for (let j = 0; j < n; j++) {
+      energy -= weights[i][j] * p[i] * p[j];
     }
-    
-    return energy / 2;
-  };
+  }
+  
+  return energy / 2;
+};
 
-  // Verificar convergencia
-  const hasConverged = (p1, p2) => {
-    return JSON.stringify(p1) === JSON.stringify(p2);
-  };
+function App() {
+  const [method, setMethod] = useState('hebb');
+  const [maxIterations] = useState(DEFAULT_MAX_ITERATIONS);
 
-  // Inicializar red
-  const initializeNetwork = () => {
-    const patterns = [REFERENCE_PATTERNS.square, REFERENCE_PATTERNS.reference];
-    const W = method === 'hebb' ? trainHebb(patterns) : trainPseudoinverse(patterns);
-    setWeights(W);
-    
-    const noisy = createNoisyPattern(REFERENCE_PATTERNS.reference, 0.25);
+  // Calculate weights based on method (memoized)
+  const weights = useMemo(() => {
+    const patterns = [REFERENCE_PATTERNS.square, REFERENCE_PATTERNS.diamond];
+    return method === 'hebb' 
+      ? trainHebb(patterns, GRID_SIZE) 
+      : trainPseudoinverse(patterns, GRID_SIZE);
+  }, [method]);
+
+  // Generate initial noisy pattern
+  const generateInitialPattern = useCallback(() => {
+    return createNoisyPattern(REFERENCE_PATTERNS.diamond, DEFAULT_NOISE_LEVEL);
+  }, []);
+
+  const [currentPattern, setCurrentPattern] = useState(generateInitialPattern);
+  const [history, setHistory] = useState(() => {
+    const initial = createNoisyPattern(REFERENCE_PATTERNS.diamond, DEFAULT_NOISE_LEVEL);
+    return [initial];
+  });
+  const [isRunning, setIsRunning] = useState(false);
+  const [iterations, setIterations] = useState(0);
+
+  // Initialize network (for reset button and method change)
+  const initializeNetwork = useCallback(() => {
+    const noisy = createNoisyPattern(REFERENCE_PATTERNS.diamond, DEFAULT_NOISE_LEVEL);
     setCurrentPattern(noisy);
     setHistory([noisy]);
     setIterations(0);
     setIsRunning(false);
-  };
+  }, []);
 
-  // Ejecutar un paso
-  const runStep = () => {
+  // Run one step
+  const runStep = useCallback(() => {
     if (!weights || iterations >= maxIterations) {
       setIsRunning(false);
       return;
     }
 
-    const newPattern = updateNetwork(currentPattern, weights);
+    const newPattern = updateNetwork(currentPattern, weights, GRID_SIZE);
     
     if (hasConverged(currentPattern, newPattern)) {
       setIsRunning(false);
@@ -188,19 +197,25 @@ function App() {
       setHistory(prev => [...prev, newPattern]);
       setIterations(prev => prev + 1);
     }
-  };
+  }, [weights, currentPattern, iterations, maxIterations]);
 
-  // Ejecutar automáticamente
+  // Auto-run effect
   useEffect(() => {
     if (isRunning) {
-      const timer = setTimeout(runStep, 500);
+      const timer = setTimeout(runStep, STEP_DELAY_MS);
       return () => clearTimeout(timer);
     }
-  }, [isRunning, currentPattern, iterations]);
+  }, [isRunning, runStep]);
 
+  // Reinitialize when method changes
   useEffect(() => {
     initializeNetwork();
-  }, [method]);
+  }, [method, initializeNetwork]);
+
+  // Memoized energy calculation
+  const currentEnergy = useMemo(() => {
+    return weights ? calculateEnergy(currentPattern, weights).toFixed(2) : 'N/A';
+  }, [weights, currentPattern]);
 
   return (
     <div style={{ 
@@ -225,13 +240,13 @@ function App() {
           marginBottom: '8px',
           textShadow: '0 2px 4px rgba(0,0,0,0.3)'
         }}>
-          Prototipo Red de Hopfield - Identificación de Imágenes
+          Hopfield Network - Image Pattern Recognition
         </h2>
         <p style={{ color: '#94a3b8', marginBottom: '28px', fontSize: '15px' }}>
-          Simulación de recuperación de patrones con eliminación de ruido (10x10 píxeles)
+          Pattern recovery simulation with noise reduction (10x10 pixels)
         </p>
 
-        {/* Controles */}
+        {/* Controls */}
         <div style={{ display: 'flex', gap: '16px', marginBottom: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
           <button
             onClick={() => setIsRunning(!isRunning)}
@@ -263,7 +278,7 @@ function App() {
             }}
           >
             {isRunning ? <Pause size={20} /> : <Play size={20} />}
-            {isRunning ? 'Pausar' : 'Ejecutar'}
+            {isRunning ? 'Pause' : 'Run'}
           </button>
           
           <button
@@ -292,7 +307,7 @@ function App() {
               e.target.style.boxShadow = (isRunning || iterations >= maxIterations) ? 'none' : '0 4px 6px rgba(16, 185, 129, 0.3)';
             }}
           >
-            Un Paso
+            Step
           </button>
           
           <button
@@ -322,7 +337,7 @@ function App() {
             }}
           >
             <RotateCcw size={20} />
-            Reiniciar
+            Reset
           </button>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -341,8 +356,8 @@ function App() {
                 fontWeight: '500'
               }}
             >
-              <option value="hebb">Regla de Hebb</option>
-              <option value="pseudoinverse">Pseudoinversa</option>
+              <option value="hebb">Hebb Rule</option>
+              <option value="pseudoinverse">Pseudoinverse</option>
             </select>
           </div>
 
@@ -356,13 +371,13 @@ function App() {
             borderRadius: '10px',
             border: '1px solid #475569'
           }}>
-            Iteración: {iterations} / {maxIterations}
+            Iteration: {iterations} / {maxIterations}
           </div>
         </div>
 
-        {/* Visualización */}
+        {/* Visualization */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px', marginBottom: '24px' }}>
-          {/* Patrón con Ruido */}
+          {/* Noisy Pattern */}
           <div style={{ 
             background: '#0f172a', 
             padding: '20px', 
@@ -378,7 +393,7 @@ function App() {
               textAlign: 'center',
               fontSize: '16px'
             }}>
-              Patrón Inicial (con ruido)
+              Initial Pattern (with noise)
             </h3>
             <div style={{ 
               display: 'inline-block', 
@@ -403,7 +418,7 @@ function App() {
             </div>
           </div>
 
-          {/* Patrón Actual */}
+          {/* Current Pattern */}
           <div style={{ 
             background: 'rgba(59, 130, 246, 0.1)', 
             padding: '20px', 
@@ -419,7 +434,7 @@ function App() {
               textAlign: 'center',
               fontSize: '16px'
             }}>
-              Patrón Actual (Iteración {iterations})
+              Current Pattern (Iteration {iterations})
             </h3>
             <div style={{ 
               display: 'inline-block', 
@@ -445,7 +460,7 @@ function App() {
             </div>
           </div>
 
-          {/* Patrón de Referencia */}
+          {/* Reference Pattern */}
           <div style={{ 
             background: 'rgba(16, 185, 129, 0.1)', 
             padding: '20px', 
@@ -461,7 +476,7 @@ function App() {
               textAlign: 'center',
               fontSize: '16px'
             }}>
-              Patrón de Referencia (objetivo)
+              Reference Pattern (target)
             </h3>
             <div style={{ 
               display: 'inline-block', 
@@ -470,7 +485,7 @@ function App() {
               overflow: 'hidden',
               boxShadow: '0 0 20px rgba(16, 185, 129, 0.3)'
             }}>
-              {REFERENCE_PATTERNS.reference.map((row, i) => (
+              {REFERENCE_PATTERNS.diamond.map((row, i) => (
                 <div key={i} style={{ display: 'flex' }}>
                   {row.map((pixel, j) => (
                     <div
@@ -488,7 +503,7 @@ function App() {
           </div>
         </div>
 
-        {/* Información adicional */}
+        {/* Additional Information */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
           <div style={{ 
             background: '#0f172a', 
@@ -497,14 +512,14 @@ function App() {
             border: '1px solid #334155'
           }}>
             <h4 style={{ fontWeight: '600', color: '#cbd5e1', marginBottom: '12px', fontSize: '16px' }}>
-              Características del Modelo
+              Model Characteristics
             </h4>
             <ul style={{ fontSize: '14px', color: '#94a3b8', listStyle: 'none', padding: 0, lineHeight: '1.8' }}>
-              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Tamaño:</strong> {SIZE}x{SIZE} = {SIZE*SIZE} neuronas</li>
-              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Método:</strong> {method === 'hebb' ? 'Regla de Hebb' : 'Pseudoinversa'}</li>
-              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Patrones memorizados:</strong> 2 (cuadrado y rombo)</li>
-              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Actualización:</strong> Asíncrona aleatoria</li>
-              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Elemento de referencia:</strong> Escuadra</li>
+              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Size:</strong> {GRID_SIZE}x{GRID_SIZE} = {GRID_SIZE*GRID_SIZE} neurons</li>
+              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Method:</strong> {method === 'hebb' ? 'Hebb Rule' : 'Pseudoinverse'}</li>
+              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Memorized patterns:</strong> 2 (square and diamond)</li>
+              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Update:</strong> Asynchronous random</li>
+              <li style={{ marginBottom: '6px' }}>• <strong style={{ color: '#cbd5e1' }}>Reference marker:</strong> Corner pixels</li>
             </ul>
           </div>
 
@@ -515,29 +530,29 @@ function App() {
             border: '1px solid #334155'
           }}>
             <h4 style={{ fontWeight: '600', color: '#cbd5e1', marginBottom: '12px', fontSize: '16px' }}>
-              Estado del Proceso
+              Process Status
             </h4>
             <ul style={{ fontSize: '14px', color: '#94a3b8', listStyle: 'none', padding: 0, lineHeight: '1.8' }}>
               <li style={{ marginBottom: '6px' }}>
-                • <strong style={{ color: '#cbd5e1' }}>Convergencia:</strong> {
+                • <strong style={{ color: '#cbd5e1' }}>Convergence:</strong> {
                   iterations >= maxIterations 
-                    ? <span style={{ color: '#f59e0b' }}>Máx. iteraciones</span>
+                    ? <span style={{ color: '#f59e0b' }}>Max iterations</span>
                     : isRunning 
-                      ? <span style={{ color: '#3b82f6' }}>En proceso...</span>
-                      : <span style={{ color: '#10b981' }}>Detenido</span>
+                      ? <span style={{ color: '#3b82f6' }}>Running...</span>
+                      : <span style={{ color: '#10b981' }}>Stopped</span>
                 }
               </li>
               <li style={{ marginBottom: '6px' }}>
-                • <strong style={{ color: '#cbd5e1' }}>Energía:</strong> {weights ? calculateEnergy(currentPattern, weights).toFixed(2) : 'N/A'}
+                • <strong style={{ color: '#cbd5e1' }}>Energy:</strong> {currentEnergy}
               </li>
               <li style={{ marginBottom: '6px' }}>
-                • <strong style={{ color: '#cbd5e1' }}>Ruido inicial:</strong> ~25% píxeles alterados
+                • <strong style={{ color: '#cbd5e1' }}>Initial noise:</strong> ~25% pixels altered
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Leyenda */}
+        {/* Legend */}
         <div style={{ 
           marginTop: '24px', 
           padding: '20px', 
@@ -547,9 +562,9 @@ function App() {
           border: '1px solid rgba(251, 191, 36, 0.2)'
         }}>
           <p style={{ fontSize: '14px', color: '#fbbf24', lineHeight: '1.6' }}>
-            <strong style={{ color: '#fcd34d' }}>Nota:</strong> El modelo de Hopfield actúa como memoria asociativa, eliminando ruido y 
-            recuperando el patrón más cercano memorizado. La escuadra (esquina inferior izquierda) sirve como 
-            referencia fija para medir desplazamientos relativos del patrón objetivo.
+            <strong style={{ color: '#fcd34d' }}>Note:</strong> The Hopfield network acts as an associative memory, removing noise and 
+            recovering the closest memorized pattern. The corner pixels (bottom-left) serve as a 
+            fixed reference marker to measure relative displacements of the target pattern.
           </p>
         </div>
       </div>
